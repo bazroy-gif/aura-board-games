@@ -1,13 +1,17 @@
 from supabase import create_client
 import datetime
 
+# --- إعدادات الاتصال ---
 SUPABASE_URL = "https://xzepnnlyrmvncqapbswag.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6ZXBubnlybXZuY3FhcGJzd2FnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyODc1NzUsImV4cCI6MjA5OTg2MzU3NX0.VAsBg8EX5ziOThBwWhactpX46iZBuMzHdH8dEqihysI"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# خريطة لربط الأسماء بالأرقام (مهم جداً للتعامل مع الـ Database)
+USER_MAP = {"Anna": 1, "Christa": 2, "Mira": 3}
+ID_MAP = {v: k for k, v in USER_MAP.items()}
+
 def get_data():
-    # تعريف الموظفين يدوياً لضمان عدم اختفاء الأسماء أبداً
     data = {
         "employees": ["Anna", "Christa", "Mira"],
         "creds": {"Anna": "0000", "Christa": "1234", "Mira": "5678"},
@@ -16,19 +20,20 @@ def get_data():
     }
     
     try:
-        # محاولة جلب الداتا من السيرفر
-        schedules_list = supabase.table("schedules").select("*").execute().data
+        response = supabase.table("schedules").select("*").execute()
+        schedules_list = response.data
         
         if schedules_list:
             for item in schedules_list:
                 d_str = item['work_date']
-                emp = item['user_id']
+                emp_id = item['user_id']
+                emp_name = ID_MAP.get(emp_id, str(emp_id)) # تحويل الرقم لاسم
                 day_name = item.get('day_name', 'MON')
                 
                 if d_str not in data['schedules']: data['schedules'][d_str] = {}
-                if emp not in data['schedules'][d_str]: data['schedules'][d_str][emp] = {}
+                if emp_name not in data['schedules'][d_str]: data['schedules'][d_str][emp_name] = {}
                 
-                data['schedules'][d_str][emp][day_name] = {
+                data['schedules'][d_str][emp_name][day_name] = {
                     "s": item['start_time'],
                     "e": item['end_time'],
                     "b": item['break_minutes'],
@@ -41,13 +46,15 @@ def get_data():
     return data
 
 def save_data(data, user_name):
-    """حفظ التغييرات في جدول schedules"""
+    """حفظ التغييرات في جدول schedules مع تحويل الأسماء إلى أرقام"""
     try:
         for d_str, scheds in data['schedules'].items():
-            for emp, days in scheds.items():
+            for emp_name, days in scheds.items():
+                emp_id = USER_MAP.get(emp_name, 0) # تحويل الاسم لرقم
+                
                 for day_name, info in days.items():
                     record = {
-                        "user_id": emp,
+                        "user_id": emp_id,
                         "work_date": d_str,
                         "day_name": day_name,
                         "start_time": info['s'],
@@ -56,7 +63,6 @@ def save_data(data, user_name):
                         "is_off": info['off'],
                         "notes": info['n']
                     }
-                    # استخدام on_conflict لضمان التحديث وعدم التكرار
                     supabase.table("schedules").upsert(record, on_conflict="user_id,work_date").execute()
         return True
     except Exception as e:
