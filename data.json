@@ -1,0 +1,6 @@
+{
+  "employees": ["Anna", "Christa", "Mira"],
+  "creds": {"Anna": "0000", "Christa": "1234", "Mira": "5678"},
+  "admins": ["Anna"],
+  "min_hours": 120
+}
