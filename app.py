@@ -144,14 +144,20 @@ else:
                 st.write(f"**Weekly Total: {weekly_hours:.1f} hours | Monthly Total: {monthly_total:.1f} hours**")
                 
                 if is_admin and st.button(f"Save {emp} Changes", key=f"save_{emp}_{sel_date}"):
-                    db.save_data(data, user)
-                    st.success(f"Changes for {emp} saved!")
+                    if db.save_data(data, user):
+                        st.success(f"Changes for {emp} saved!")
+                    else:
+                        st.error(f"Error saving {emp} changes. Check database connection.")
 
     if is_admin:
         with st.expander("⚙️ Admin Settings"):
             new_name = st.text_input("New Member Name")
             new_pass = st.text_input("New Member Passkey", type="password")
             if st.button("Add Member Profile"):
-                data['employees'].append(new_name); data['creds'][new_name] = new_pass; db.save_data(data, user); st.rerun()
-            if st.button("Save All Changes"): db.save_data(data, user); st.success("Data Saved Successfully!")
+                data['employees'].append(new_name); data['creds'][new_name] = new_pass; 
+                if db.save_data(data, user): st.rerun()
+                else: st.error("Error adding member.")
+            if st.button("Save All Changes"):
+                if db.save_data(data, user): st.success("Data Saved Successfully!")
+                else: st.error("Error saving all data. Check database connection.")
     st.markdown('</div>', unsafe_allow_html=True)
