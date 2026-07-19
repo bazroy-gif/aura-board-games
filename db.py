@@ -2,7 +2,7 @@ import streamlit as st
 from supabase import create_client
 import datetime
 
-# --- إعدادات الاتصال (طريقة مضمونة للوصول للـ Secrets) ---
+# --- إعدادات الاتصال (Secrets) ---
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
@@ -40,11 +40,13 @@ def get_data():
 
 def save_data(data, user_name):
     try:
+        # تحويل الداتا لـ List عشان الـ upsert يقبلها دفعة واحدة
+        records_to_upsert = []
         for d_str, scheds in data['schedules'].items():
             for emp_name, days in scheds.items():
                 emp_id = USER_MAP.get(emp_name, 0)
                 for day_name, info in days.items():
-                    record = {
+                    records_to_upsert.append({
                         "user_id": emp_id,
                         "work_date": d_str,
                         "day_name": day_name,
@@ -53,9 +55,12 @@ def save_data(data, user_name):
                         "break_minutes": info['b'],
                         "is_off": info['off'],
                         "notes": info['n']
-                    }
-                    supabase.table("schedules").upsert(record, on_conflict="user_id,work_date").execute()
+                    })
+        
+        # الحفظ دفعة واحدة لضمان الاستقرار
+        if records_to_upsert:
+            supabase.table("schedules").upsert(records_to_upsert).execute()
         return True
     except Exception as e:
-        print(f"Save Error: {e}")
+        st.error(f"خطأ تقني: {e}")
         return False
