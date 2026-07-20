@@ -1,16 +1,15 @@
 import streamlit as st
-from supabase import create_client
-import socket
+import urllib.request
+import json
+import datetime
 
-# تجاوز مشاكل الـ DNS عبر تثبيت العنوان صراحةً إن وجد
+# قراءة الـ Secrets مع Fallback مباشر
 try:
     SUPABASE_URL = st.secrets["SUPABASE_URL"]
     SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 except Exception:
     SUPABASE_URL = "https://xzepnnlyrmvncqapbswag.supabase.co"
-    SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6ZXBubnlybXZuY3FhcGJzd2FnIiwicm9sZSI6InFub24i nonradiative"
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6ZXBubnlybXZuY3FhcGJzd2FnIiwicm9sZSI6InFub24iLCJpYXQiOjE3ODQyODc1NzUsImV4cCI6MjA5OTg2MzU3NX0.VAsBg8EX5ziOThBwWhactpX46iZBuMzHdH8dEqihysI"
 
 USER_MAP = {"Anna": 1, "Christa": 2, "Mira": 3}
 ID_MAP = {v: k for k, v in USER_MAP.items()}
@@ -23,20 +22,30 @@ def get_data():
         "schedules": {}
     }
     try:
-        response = supabase.table("schedules").select("*").execute()
-        if response.data:
-            for item in response.data:
-                d_str = item['work_date']
-                emp_id = item['user_id']
-                emp_name = ID_MAP.get(emp_id, str(emp_id))
-                day_name = item.get('day_name', 'MON')
-                
-                if d_str not in data['schedules']: data['schedules'][d_str] = {}
-                if emp_name not in data['schedules'][d_str]: data['schedules'][d_str][emp_name] = {}
-                data['schedules'][d_str][emp_name][day_name] = {
-                    "s": item['start_time'], "e": item['end_time'], 
-                    "b": item['break_minutes'], "n": item.get('notes', ''), "off": item['is_off']
-                }
+        url = f"{SUPABASE_URL}/rest/v1/schedules?select=*"
+        req = urllib.request.Request(
+            url, 
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=5) as response:
+            res_data = json.loads(response.read().decode())
+            if res_data:
+                for item in res_data:
+                    d_str = item['work_date']
+                    emp_id = item['user_id']
+                    emp_name = ID_MAP.get(emp_id, str(emp_id))
+                    day_name = item.get('day_name', 'MON')
+                    
+                    if d_str not in data['schedules']: data['schedules'][d_str] = {}
+                    if emp_name not in data['schedules'][d_str]: data['schedules'][d_str][emp_name] = {}
+                    data['schedules'][d_str][emp_name][day_name] = {
+                        "s": item['start_time'], "e": item['end_time'], 
+                        "b": item['break_minutes'], "n": item.get('notes', ''), "off": item['is_off']
+                    }
     except Exception as e:
         print(f"Fetch Error: {e}")
     return data
@@ -60,9 +69,23 @@ def save_data(data, user_name):
                     })
         
         if records_to_upsert:
-            supabase.table("schedules").upsert(records_to_upsert).execute()
+            url = f"{SUPABASE_URL}/rest/v1/schedules"
+            # استخدام خاصية الـ Upsert عبر الـ REST API مباشرة
+            payload = json.dumps(records_to_upsert).encode('utf-8')
+            req = urllib.request.Request(
+                url, 
+                data=payload,
+                method="POST",
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "resolution=merge-duplicates"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                pass
         return True
     except Exception as e:
-        # حل بديل مؤقت للتخزين المحلي العابر إذا عاند السيرفر لتمنع توقف التطبيق
         st.error(f"خطأ تقني: {e}")
         return False
