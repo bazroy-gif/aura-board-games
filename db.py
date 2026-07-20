@@ -2,9 +2,13 @@ import streamlit as st
 from supabase import create_client
 import datetime
 
-# --- إعدادات الاتصال (Secrets) ---
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+# --- إعدادات الاتصال (مع Fallback مباشر يمنع أخطاء الـ Secrets) ---
+try:
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+except Exception:
+    SUPABASE_URL = "https://xzepnnlyrmvncqapbswag.supabase.co"
+    SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6ZXBubnlybXZuY3FhcGJzd2FnIiwicm9sZSI6InFub24iLCJpYXQiOjE3ODQyODc1NzUsImV4cCI6MjA5OTg2MzU3NX0.VAsBg8EX5ziOThBwWhactpX46iZBuMzHdH8dEqihysI"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
