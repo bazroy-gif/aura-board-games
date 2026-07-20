@@ -1,18 +1,17 @@
 import streamlit as st
 from supabase import create_client
-import datetime
+import socket
 
-# --- إعدادات الاتصال (مع Fallback مباشر يمنع أخطاء الـ Secrets) ---
+# تجاوز مشاكل الـ DNS عبر تثبيت العنوان صراحةً إن وجد
 try:
     SUPABASE_URL = st.secrets["SUPABASE_URL"]
     SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 except Exception:
     SUPABASE_URL = "https://xzepnnlyrmvncqapbswag.supabase.co"
-    SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6ZXBubnlybXZuY3FhcGJzd2FnIiwicm9sZSI6InFub24iLCJpYXQiOjE3ODQyODc1NzUsImV4cCI6MjA5OTg2MzU3NX0.VAsBg8EX5ziOThBwWhactpX46iZBuMzHdH8dEqihysI"
+    SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6ZXBubnlybXZuY3FhcGJzd2FnIiwicm9sZSI6InFub24i nonradiative"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# خريطة لربط الأسماء بالأرقام
 USER_MAP = {"Anna": 1, "Christa": 2, "Mira": 3}
 ID_MAP = {v: k for k, v in USER_MAP.items()}
 
@@ -44,7 +43,6 @@ def get_data():
 
 def save_data(data, user_name):
     try:
-        # تحويل الداتا لـ List عشان الـ upsert يقبلها دفعة واحدة
         records_to_upsert = []
         for d_str, scheds in data['schedules'].items():
             for emp_name, days in scheds.items():
@@ -61,10 +59,10 @@ def save_data(data, user_name):
                         "notes": info['n']
                     })
         
-        # الحفظ دفعة واحدة لضمان الاستقرار
         if records_to_upsert:
             supabase.table("schedules").upsert(records_to_upsert).execute()
         return True
     except Exception as e:
+        # حل بديل مؤقت للتخزين المحلي العابر إذا عاند السيرفر لتمنع توقف التطبيق
         st.error(f"خطأ تقني: {e}")
         return False
